@@ -22,19 +22,34 @@ population_size = 10
 mutation_rate = 0.1
 
 # Set up the neural network parameters
-num_inputs = 2
+num_inputs = 4  # Updated to include sight and hearing inputs
 num_hidden = 20
 num_outputs = 2
 
 # Define the fluid dynamics simulation
-def simulate_fluid_dynamics(bot_shape):
+def simulate_fluid_dynamics(bot_shape, bot_position, obstacles):
     fluid_force = (0, 0)  # Placeholder, you can implement the actual fluid forces here
-    return fluid_force
+
+    # Sight ability
+    closest_obstacle_distance = float('inf')
+    for obstacle in obstacles:
+        distance = math.dist(bot_position, obstacle)
+        if distance < closest_obstacle_distance:
+            closest_obstacle_distance = distance
+
+    # Hearing ability
+    sound_intensity = 0
+    for obstacle in obstacles:
+        distance = math.dist(bot_position, obstacle)
+        if distance < 10:  # Assuming sound can be heard within a distance of 10 units
+            sound_intensity += 1 / distance
+
+    return fluid_force, closest_obstacle_distance, sound_intensity
 
 # Define the bot's movement behavior
-def move(bot):
-    # Calculate fluid forces
-    fluid_force = simulate_fluid_dynamics(bot['shape'])
+def move(bot, obstacles):
+    # Calculate fluid forces, sight, and hearing inputs
+    fluid_force, closest_obstacle_distance, sound_intensity = simulate_fluid_dynamics(bot['shape'], bot['position'], obstacles)
 
     # Update bot's position and shape based on the fluid forces
     x_avg = sum([vertex[0] for vertex in bot['shape']]) / len(bot['shape'])
@@ -44,7 +59,7 @@ def move(bot):
     bot['shape'] = [(vertex[0] + fluid_force[0], vertex[1] + fluid_force[1]) for vertex in bot['shape']]
 
     # Calculate inputs for neural network
-    inputs = [x_avg, y_avg]
+    inputs = [x_avg, y_avg, closest_obstacle_distance, sound_intensity]
 
     # Feed-forward neural network
     hidden = [sum([inputs[i] * bot['weights_ih'][i][j] for i in range(num_inputs)]) for j in range(num_hidden)]
@@ -69,8 +84,12 @@ def run_generation(gen, output_queue):
     population = [{
         'shape': [(0, -10), (-5, 10), (5, 10)],
         'weights_ih': [[random.uniform(-1, 1) for _ in range(num_hidden)] for _ in range(num_inputs)],
-        'weights_ho': [[random.uniform(-1, 1) for _ in range(num_outputs)] for _ in range(num_hidden)]
+        'weights_ho': [[random.uniform(-1, 1) for _ in range(num_outputs)] for _ in range(num_hidden)],
+        'position': (0, -10)  # Initial position of the bot
     } for _ in range(population_size)]
+
+    # Define obstacles
+    obstacles = [(10, 10), (-10, 10)]  # Example obstacle positions
 
     # Run simulations for the current generation
     for bot_num, bot in enumerate(population):
@@ -79,8 +98,8 @@ def run_generation(gen, output_queue):
         # Play the game with the current bot's shape
         bot_shape = bot['shape']
         for _ in range(100):
-            # Move the bot based on fluid forces and neural network output
-            move(bot)
+            # Move the bot based on fluid forces, sight, hearing, and neural network output
+            move(bot, obstacles)
 
     # Select the fittest bot for reproduction
     population.sort(key=lambda x: sum([vertex[1] for vertex in x['shape']]), reverse=True)
