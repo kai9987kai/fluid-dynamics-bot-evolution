@@ -12,3 +12,37 @@ The shapes become more refined and optimized over time, with some generations pr
 In some cases, the fittest bot's shape may reach a plateau, where further generations do not lead to significant improvements.
 
 Overall, the results demonstrate the effectiveness of the genetic algorithm and neural networks in evolving and adapting the bot's shape to successfully navigate through obstacles in the fluid dynamics simulation.
+
+
+Key Innovations
+1. True Evolution Engine
+Selection: Tournament selection picks the fittest parents.
+Crossover & Mutation: Traits are properly passed down and modified.
+Elitism: The top 2 bots are cloned to the next generation.
+2. Complex Fluid Dynamics (Phase 2 Upgrade)
+Chaotic Flow Field: The water is no longer a simple stream. It's a complex vector field with swirling currents and eddies (visualized by light blue arrows).
+Drag: Bots experience drag proportional to velocity squared.
+3. Metabolic Energy System (Phase 2 Upgrade)
+Energy: Bots start with 100 energy.
+Consumption: Moving costs energy. Surviving costs energy.
+Food: Green particles are scattered in the arena. Eating one gives +50 Energy.
+Death: Running out of energy kills the bot instantly.
+4. Advanced Sensory System
+Sight: Bots cast 3 rays (-45°, 0°, +45°) to detect obstacles.
+Smell/Sense: Bots know the vector to the nearest food source.
+Internal State: Bots know their current energy level and velocity.
+Visualization: The fittest bot draws its sight lines (grey) and changes color based on energy (Green=Full, Red=Empty).
+5. Dynamic Environment
+Moving Obstacles: Red circles bounce around the arena.
+Target: A purple circle is the ultimate goal.
+How to Run
+Run the simulation from the terminal:
+
+bash
+python scratch/fluid_sim/main.py
+Strategy Guide
+Watch as the bots evolve:
+
+Early Gens: Chaotic crashing and starving.
+Mid Gens: learning to eat food to survive longer.
+Late Gens: Efficient swimmers that grab food on their way to the target.
