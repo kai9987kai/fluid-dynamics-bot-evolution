@@ -1,143 +1,140 @@
+
 import turtle
-import random
+import time
 import math
-import threading
-import queue
-import logging
+import config
+from simulation import Simulation
 
-# Set up logging
-logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+def draw_vector(t, start, vector, color="blue", scale=1.0):
+    t.penup()
+    t.goto(start)
+    t.pendown()
+    t.color(color)
+    t.goto(start[0] + vector[0]*scale, start[1] + vector[1]*scale)
 
-# Set up the window
-window = turtle.Screen()
-window.title("Fluid Dynamics Bot Simulation")
-window.bgcolor("white")
+def draw_flow_field(t):
+    # Draw a grid of arrows
+    step = 100
+    w = config.SCREEN_WIDTH // 2
+    h = config.SCREEN_HEIGHT // 2
+    t.color("lightblue")
+    t.width(1)
+    
+    # We need a dummy sim to calc force or duplicate logic? 
+    # Let's duplicate logic for visualization efficiency to avoid passing full sim
+    scale = config.FLUID_SCALE
+    strength = config.FLUID_STRENGTH
+    
+    for x in range(-w, w, step):
+        for y in range(-h, h, step):
+            fx = math.cos(y / scale) * strength + 0.2
+            fy = math.sin(x / scale) * strength
+            draw_vector(t, (x, y), (fx, fy), "lightblue", 40)
 
-# Set up the turtle
-bot_turtle = turtle.Turtle()
-bot_turtle.penup()
+def main():
+    # Setup Window (Using try-except to handle potential Tkinter errors if closed)
+    try:
+        window = turtle.Screen()
+        window.title("Evolutionary Fluid Dynamics: Chaos & Metabolism")
+        window.setup(config.SCREEN_WIDTH, config.SCREEN_HEIGHT)
+        window.bgcolor("white")
+        window.tracer(0) 
 
-# Set up the genetic algorithm parameters
-population_size = 10
-mutation_rate = 0.1
+        # Setup Turtles
+        bot_turtle = turtle.Turtle()
+        bot_turtle.hideturtle()
+        bot_turtle.penup()
+        
+        bg_turtle = turtle.Turtle()
+        bg_turtle.hideturtle()
+        bg_turtle.penup()
+        
+        sim = Simulation()
+        
+        # Draw Background Flow once
+        draw_flow_field(bg_turtle)
+        
+        # Simulation Loop
+        for gen in range(config.GENERATIONS):
+            
+            # Run Steps
+            for step in range(config.SIMULATION_STEPS):
+                alive_count = sim.update()
+                
+                # Visualization
+                bot_turtle.clear()
+                
+                # Draw Obstacles
+                bot_turtle.color("red")
+                for obs in sim.obstacles:
+                    bot_turtle.goto(obs['pos'][0], obs['pos'][1] - obs['radius'])
+                    bot_turtle.setheading(0)
+                    bot_turtle.pendown()
+                    bot_turtle.circle(obs['radius'])
+                    bot_turtle.penup()
+                
+                # Draw Food
+                bot_turtle.color("green")
+                for food in sim.foods:
+                    bot_turtle.goto(food['pos'][0], food['pos'][1])
+                    bot_turtle.dot(5) # Draw food as dot
+                
+                # Draw Target
+                bot_turtle.color("purple") # Change target color to distinct from food
+                bot_turtle.goto(sim.target_pos[0], sim.target_pos[1]-10)
+                bot_turtle.pendown()
+                bot_turtle.circle(10)
+                bot_turtle.penup()
 
-# Set up the neural network parameters
-num_inputs = 4  # Updated to include sight and hearing inputs
-num_hidden = 20
-num_outputs = 2
+                for i, bot in enumerate(sim.population):
+                    if not bot.alive:
+                        continue
+                        
+                    is_best = (i == 0)
+                    
+                    # Color based on energy?
+                    # Full energy = Orange, Low = Black/Grey
+                    energy_ratio = max(0, min(1, bot.energy / config.STARTING_ENERGY))
+                    color = (1.0 - energy_ratio, energy_ratio, 0) # R->G gradient
+                    if is_best: color = "blue" # Highlight best
+                    
+                    bot_turtle.goto(bot.pos)
+                    bot_turtle.setheading(math.degrees(bot.angle))
+                    bot_turtle.color(color)
+                    
+                    bot_turtle.pendown()
+                    bot_turtle.forward(10)
+                    bot_turtle.right(120)
+                    bot_turtle.forward(10)
+                    bot_turtle.right(120)
+                    bot_turtle.forward(10)
+                    bot_turtle.right(120)
+                    bot_turtle.penup()
+                    
+                    # Draw Sensors for Best Bot
+                    if is_best:
+                        bot_turtle.color("grey")
+                        for j, reading in enumerate(bot.sensor_readings):
+                            ray_angle = bot.angle + bot.ray_angles[j]
+                            dist = (1.0 - reading) * 200.0
+                            start_x, start_y = bot.pos
+                            end_x = start_x + math.cos(ray_angle) * dist
+                            end_y = start_y + math.sin(ray_angle) * dist
+                            
+                            bot_turtle.goto(start_x, start_y)
+                            bot_turtle.pendown()
+                            bot_turtle.goto(end_x, end_y)
+                            bot_turtle.penup()
+                    
+                window.update()
+                if alive_count == 0:
+                    break
+                    
+            sim.evolve()
 
-# Define the fluid dynamics simulation
-def simulate_fluid_dynamics(bot_shape, bot_position, obstacles):
-    fluid_force = (0, 0)  # Placeholder, you can implement the actual fluid forces here
+        turtle.done()
+    except turtle.Terminator:
+        print("Simulation window closed.") 
 
-    # Sight ability
-    closest_obstacle_distance = float('inf')
-    for obstacle in obstacles:
-        distance = math.dist(bot_position, obstacle)
-        if distance < closest_obstacle_distance:
-            closest_obstacle_distance = distance
-
-    # Hearing ability
-    sound_intensity = 0
-    for obstacle in obstacles:
-        distance = math.dist(bot_position, obstacle)
-        if distance < 10:  # Assuming sound can be heard within a distance of 10 units
-            sound_intensity += 1 / distance
-
-    return fluid_force, closest_obstacle_distance, sound_intensity
-
-# Define the bot's movement behavior
-def move(bot, obstacles):
-    # Calculate fluid forces, sight, and hearing inputs
-    fluid_force, closest_obstacle_distance, sound_intensity = simulate_fluid_dynamics(bot['shape'], bot['position'], obstacles)
-
-    # Update bot's position and shape based on the fluid forces
-    x_avg = sum([vertex[0] for vertex in bot['shape']]) / len(bot['shape'])
-    y_avg = sum([vertex[1] for vertex in bot['shape']]) / len(bot['shape'])
-    x_avg += fluid_force[0]
-    y_avg += fluid_force[1]
-    bot['shape'] = [(vertex[0] + fluid_force[0], vertex[1] + fluid_force[1]) for vertex in bot['shape']]
-
-    # Calculate inputs for neural network
-    inputs = [x_avg, y_avg, closest_obstacle_distance, sound_intensity]
-
-    # Feed-forward neural network
-    hidden = [sum([inputs[i] * bot['weights_ih'][i][j] for i in range(num_inputs)]) for j in range(num_hidden)]
-    hidden = [math.tanh(value) for value in hidden]
-    outputs = [sum([hidden[i] * bot['weights_ho'][i][j] for i in range(num_hidden)]) for j in range(num_outputs)]
-    outputs = [math.tanh(value) for value in outputs]
-
-    # Choose the action based on the outputs
-    if outputs[0] > 0:
-        bot['shape'][0] = (bot['shape'][0][0] + 0.1, bot['shape'][0][1])
-    if outputs[1] > 0:
-        bot['shape'][1] = (bot['shape'][1][0] - 0.1, bot['shape'][1][1])
-    else:
-        bot['shape'][2] = (bot['shape'][2][0] + 0.1, bot['shape'][2][1])
-
-# Set up the evolution loop
-generations = 100
-
-# Thread function to run a single generation
-def run_generation(gen, output_queue):
-    # Generate initial population
-    population = [{
-        'shape': [(0, -10), (-5, 10), (5, 10)],
-        'weights_ih': [[random.uniform(-1, 1) for _ in range(num_hidden)] for _ in range(num_inputs)],
-        'weights_ho': [[random.uniform(-1, 1) for _ in range(num_outputs)] for _ in range(num_hidden)],
-        'position': (0, -10)  # Initial position of the bot
-    } for _ in range(population_size)]
-
-    # Define obstacles
-    obstacles = [(10, 10), (-10, 10)]  # Example obstacle positions
-
-    # Run simulations for the current generation
-    for bot_num, bot in enumerate(population):
-        logging.info(f"Generation: {gen + 1}, Bot: {bot_num + 1}")
-
-        # Play the game with the current bot's shape
-        bot_shape = bot['shape']
-        for _ in range(100):
-            # Move the bot based on fluid forces, sight, hearing, and neural network output
-            move(bot, obstacles)
-
-    # Select the fittest bot for reproduction
-    population.sort(key=lambda x: sum([vertex[1] for vertex in x['shape']]), reverse=True)
-    fittest_bot = population[0]
-
-    # Add the fittest bot's shape to the output queue
-    output_queue.put((gen, fittest_bot['shape']))
-
-# Create a queue for storing the output of each generation
-output_queue = queue.Queue()
-
-# Create a list to store the threads
-threads = []
-
-# Execute the generations using threading
-for gen in range(generations):
-    thread = threading.Thread(target=run_generation, args=(gen, output_queue))
-    thread.start()
-    threads.append(thread)
-
-# Wait for all threads to finish
-for thread in threads:
-    thread.join()
-
-# Process the output queue to get the fittest bot's shape for each generation
-results = []
-while not output_queue.empty():
-    results.append(output_queue.get())
-
-# Render the final results in the turtle window
-for gen, fittest_shape in results:
-    bot_turtle.clear()
-    for vertex in fittest_shape:
-        bot_turtle.goto(vertex[0], vertex[1])
-        bot_turtle.pendown()
-    bot_turtle.penup()
-    turtle.update()
-    logging.info("Generation: {}, Fittest bot's shape: {}".format(gen + 1, fittest_shape))
-
-# Keep the window open after the simulation finishes
-turtle.done()
+if __name__ == "__main__":
+    main()
