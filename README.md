@@ -1,48 +1,175 @@
 # fluid-dynamics-bot-evolution
-This repository contains an implementation of a fluid dynamics bot that uses neural networks and a genetic algorithm to evolve its shape and navigate through obstacles. The bot's shape is dynamically adjusted based on simulated fluid forces, and a neural network determines its movement. The genetic algorithm drives the evolution of the bot's shape by selecting the fittest individuals from each generation. The simulation runs for multiple generations, continuously improving the bot's ability to navigate obstacles. The code is written in Python and utilizes the turtle graphics library for visualization.
 
+An evolutionary robotics simulation where neural-network bots learn to survive and navigate a dynamic 2D fluid environment. Bots evolve both their controller weights and body morphology while dealing with moving obstacles, food, drifting nutrient currents, vortex-like flow fields, and a target that becomes harder to reach as the curriculum advances.
 
+The project uses only the Python standard library. Visualization is handled with `turtle`, and the same simulation can run headlessly for faster experiments.
 
-By observing the results, we can see the following:
+## What It Does
 
-The initial generations start with random shapes, and the fitness of the bots' shapes varies.
-As the generations progress, we notice some shapes that consistently perform better and are selected as the fittest individuals.
-The fittest bot's shape tends to undergo modifications to improve its ability to navigate obstacles.
-The shapes become more refined and optimized over time, with some generations producing shapes that perform significantly better than previous ones.
-In some cases, the fittest bot's shape may reach a plateau, where further generations do not lead to significant improvements.
+- Evolves a population of bots over many generations.
+- Uses neural controllers with recurrent memory outputs.
+- Evolves morphology traits such as body length, body width, sensor range, sensor spread, drag scale, thrust scale, turn rate, and energy efficiency.
+- Simulates time-varying fluid flow with waves, vortices, drag, and a constant drift.
+- Adds food particles and drifting nutrient zones as energy sources.
+- Uses moving obstacles and a curriculum that increases difficulty over time.
+- Preserves diverse behavioral niches with a quality-diversity archive.
+- Saves best genomes to JSON and exports generation history to CSV.
 
-Overall, the results demonstrate the effectiveness of the genetic algorithm and neural networks in evolving and adapting the bot's shape to successfully navigate through obstacles in the fluid dynamics simulation.
+## Current Features
 
+### Evolution
 
-Key Innovations
-1. True Evolution Engine
-Selection: Tournament selection picks the fittest parents.
-Crossover & Mutation: Traits are properly passed down and modified.
-Elitism: The top 2 bots are cloned to the next generation.
-2. Complex Fluid Dynamics (Phase 2 Upgrade)
-Chaotic Flow Field: The water is no longer a simple stream. It's a complex vector field with swirling currents and eddies (visualized by light blue arrows).
-Drag: Bots experience drag proportional to velocity squared.
-3. Metabolic Energy System (Phase 2 Upgrade)
-Energy: Bots start with 100 energy.
-Consumption: Moving costs energy. Surviving costs energy.
-Food: Green particles are scattered in the arena. Eating one gives +50 Energy.
-Death: Running out of energy kills the bot instantly.
-4. Advanced Sensory System
-Sight: Bots cast 3 rays (-45°, 0°, +45°) to detect obstacles.
-Smell/Sense: Bots know the vector to the nearest food source.
-Internal State: Bots know their current energy level and velocity.
-Visualization: The fittest bot draws its sight lines (grey) and changes color based on energy (Green=Full, Red=Empty).
-5. Dynamic Environment
-Moving Obstacles: Red circles bounce around the arena.
-Target: A purple circle is the ultimate goal.
-How to Run
-Run the simulation from the terminal:
+- Tournament selection
+- Crossover and mutation
+- Elitism
+- Quality-diversity archive
+- Novelty scoring from behavior descriptors
+- Archive-seeded parent selection
+- Save/load best genome workflow
 
-bash
-python scratch/fluid_sim/main.py
-Strategy Guide
-Watch as the bots evolve:
+### Bot Intelligence
 
-Early Gens: Chaotic crashing and starving.
-Mid Gens: learning to eat food to survive longer.
-Late Gens: Efficient swimmers that grab food on their way to the target.
+- Feed-forward neural network with recurrent memory state
+- Five obstacle ray sensors
+- Food direction and distance sensing
+- Nutrient-zone direction and distance sensing
+- Target direction and distance sensing
+- Velocity, local flow force, energy, boundary warning, and flow-alignment inputs
+
+### Environment
+
+- Dynamic sine/cosine flow field
+- Local vortex currents
+- Moving circular obstacles
+- Food particles that respawn after being eaten
+- Drifting nutrient zones that slowly restore energy
+- Drifting target after early generations
+- Difficulty ramp that increases obstacle movement speed
+
+### Visualization
+
+- Live `turtle` rendering
+- Flow vectors
+- Moving obstacles
+- Food particles
+- Nutrient zones
+- Target circle
+- Bot bodies scaled by evolved morphology
+- Best live bot highlighted in blue
+- Sensor rays for the best live bot
+- Overlay with generation, step, alive count, fitness, archive size, and curriculum difficulty
+
+## Project Structure
+
+| File | Purpose |
+| --- | --- |
+| `main.py` | CLI entry point, visual rendering, headless runner |
+| `simulation.py` | Population, environment, flow field, evolution loop, archive, save/export |
+| `bot.py` | Bot physics, sensing, recurrent memory, fitness, behavior descriptor |
+| `genome.py` | Neural-network weights, morphology traits, crossover, mutation, serialization |
+| `config.py` | Simulation, physics, neural-network, evolution, and visualization constants |
+| `tests/test_simulation.py` | Unit tests for controller wiring, archive behavior, save/load, and exports |
+| `original_fluid_bot.py` | Legacy prototype kept for reference |
+
+## Requirements
+
+- Python 3.10 or newer recommended
+- No third-party packages required
+
+## Run
+
+Start the visual simulation:
+
+```bash
+python main.py
+```
+
+Run a deterministic visual simulation:
+
+```bash
+python main.py --seed 1
+```
+
+Run headlessly:
+
+```bash
+python main.py --headless --generations 10 --steps 200 --seed 1
+```
+
+Save the best genome and export history:
+
+```bash
+python main.py --headless --generations 25 --steps 300 --seed 1 --save-best best_genome.json --history-csv history.csv
+```
+
+Resume from a saved genome:
+
+```bash
+python main.py --load-genome best_genome.json
+```
+
+Run a resumed headless experiment:
+
+```bash
+python main.py --headless --load-genome best_genome.json --generations 20 --steps 300 --history-csv resumed_history.csv
+```
+
+## CLI Options
+
+| Option | Description |
+| --- | --- |
+| `--headless` | Runs without opening a Turtle window |
+| `--generations N` | Number of generations to run |
+| `--steps N` | Max simulation steps per generation |
+| `--seed N` | Sets the random seed for repeatable runs |
+| `--load-genome PATH` | Seeds the population from a saved best-genome JSON file |
+| `--save-best PATH` | Saves the best genome at the end of the run |
+| `--history-csv PATH` | Exports per-generation stats to CSV |
+
+## Test
+
+```bash
+python -m unittest discover -s tests
+```
+
+## Tuning
+
+Most behavior is controlled from `config.py`.
+
+Useful constants to tune:
+
+- `POPULATION_SIZE`
+- `GENERATIONS`
+- `SIMULATION_STEPS`
+- `MUTATION_RATE`
+- `MUTATION_AMOUNT`
+- `MORPHOLOGY_TRAITS`
+- `NOVELTY_WEIGHT`
+- `ARCHIVE_PARENT_RATE`
+- `CURRICULUM_STEP`
+- `MAX_CURRICULUM_DIFFICULTY`
+- `NUTRIENT_ZONE_COUNT`
+- `FLOW_VORTEX_STRENGTH`
+
+If you change `SENSOR_RAY_COUNT`, `MEMORY_SIZE`, or neural input/output constants, run the tests before launching a long experiment.
+
+## Research-Informed Direction
+
+The current feature set follows several active research themes:
+
+- Quality-diversity methods such as MAP-Elites help retain useful stepping stones and reduce premature convergence.
+- Morphology/controller co-evolution is fragile, so the archive preserves diverse body/controller combinations instead of only the single highest-fitness lineage.
+- Recurrent controller memory gives agents a compact internal state, useful in partially observable environments.
+- Active flow-control and learning-based fluid-dynamics research motivates local flow sensing, flow alignment rewards, and dynamic currents.
+
+References:
+
+- [Premature convergence in morphology and control co-evolution](https://journals.sagepub.com/doi/10.1177/10597123231198497)
+- [Quality Diversity under Sparse Interaction and Sparse Reward](https://pubmed.ncbi.nlm.nih.gov/39823378/)
+- [Controller Distillation Reduces Fragile Brain-Body Co-Adaptation and Enables Migrations in MAP-Elites](https://arxiv.org/abs/2504.06523)
+- [Dynamic flow control through active matter programming language](https://www.nature.com/articles/s41563-024-02090-w)
+- [Machine learning in fluid dynamics: A critical assessment](https://journals.aps.org/prfluids/accepted/10.1103/8t52-mtb9)
+
+## Interpreting Results
+
+Early generations often crash, starve, or drift passively. As evolution progresses, useful strategies may emerge: conserving energy, riding flow vectors, foraging before target pursuit, avoiding boundary traps, or specializing in nutrient-zone survival. The archive keeps multiple strategies available as parents, which helps the system keep improving after a simple fitness-only run would plateau.
